@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-model-a
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: demo-model-a
+  template:
+    metadata:
+      labels:
+        app: demo-model-a
+    spec:
+      serviceAccountName: my-service-account
+      containers:
+        - name: demo-model-a
+          image: 545705576580.dkr.ecr.ap-south-1.amazonaws.com/karpenterdemo:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+

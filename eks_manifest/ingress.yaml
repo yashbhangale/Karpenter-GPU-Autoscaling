@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-model-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "370"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "370"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /demo/a(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: demo-service-a
+                port:
+                  number: 80
+       
