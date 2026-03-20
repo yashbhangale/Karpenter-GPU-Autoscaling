@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-adapter
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-adapter
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/stats", "pods", "services", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["custom.metrics.k8s.io"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-adapter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-adapter
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-adapter
+    namespace: monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-adapter-config
+  namespace: monitoring
+data:
+  config.yaml: |
+    rules:
+      custom:
+        - seriesQuery: '{__name__="fastapi_http_requests_per_minute",namespace!="",pod!=""}'
+          resources:
+            overrides:
+              namespace:
+                resource: "namespace"
+              pod:
+                resource: "pod"
+          name:
+            matches: "^fastapi_http_requests_per_minute$"
+            as: "fastapi_http_requests_per_minute"
+          metricsQuery: 'avg_over_time(fastapi_http_requests_per_minute{<<.LabelMatchers>>}[2m])'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-adapter
+  namespace: monitoring
+  labels:
+    app: prometheus-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-adapter
+  template:
+    metadata:
+      labels:
+        app: prometheus-adapter
+    spec:
+      serviceAccountName: prometheus-adapter
+      containers:
+        - name: prometheus-adapter
+          image: registry.k8s.io/prometheus-adapter/prometheus-adapter:v0.11.2
+          args:
+            - --prometheus-url=http://prometheus-server.monitoring.svc.cluster.local
+            - --config=/etc/adapter/config.yaml
+            - --secure-port=6443
+            - --v=4
+          ports:
+            - name: https
+              containerPort: 6443
+          volumeMounts:
+            - name: adapter-config
+              mountPath: /etc/adapter
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: adapter-config
+          configMap:
+            name: prometheus-adapter-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-adapter
+  namespace: monitoring
+spec:
+  selector:
+    app: prometheus-adapter
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
+---
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1beta1.custom.metrics.k8s.io
+spec:
+  service:
+    name: prometheus-adapter
+    namespace: monitoring
+  group: custom.metrics.k8s.io
+  version: v1beta1
+  insecureSkipTLSVerify: true
+  groupPriorityMinimum: 100
+  versionPriority: 100

@@ -17,7 +17,7 @@ spec:
       serviceAccountName: my-service-account
       containers:
         - name: demo-model-a
-          image: 545705576580.dkr.ecr.ap-south-1.amazonaws.com/karpenterdemo:latest
+          image: # Docker Image URL
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
