@@ -111,7 +111,7 @@ Each service exposes:
 
 ---
 
-## 🔄 End-to-End Flow
+## End-to-End Flow
 
 1. Traffic increases
 2. RPM metric increases
